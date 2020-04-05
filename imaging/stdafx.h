@@ -14,5 +14,8 @@
 // reference additional headers your program requires here
 #include <stdio.h>
 
+#pragma warning(push)
+#pragma warning(disable : 4819)
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/utils/logger.hpp>
+#pragma warning(pop)
