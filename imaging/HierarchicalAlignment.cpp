@@ -64,7 +64,7 @@ void transfer_displacements(
             cv::Vec2f best_disp;
             for (const auto coord : coords_to_check) {
                 cv::Vec2f disp = input.at<cv::Vec2f>(coord[1], coord[0]) * PixelExpansionFactor;
-                float residual = aligner->tile_residual_L1(out_x, out_y, disp[0], disp[1]);
+                float residual = aligner->disp_residual_L1(out_x, out_y, disp[0], disp[1]);
                 if (residual < best_residual) {
                     best_residual = residual;
                     best_disp = disp;
@@ -75,41 +75,6 @@ void transfer_displacements(
             output->at<cv::Vec2f>(out_y, out_x) = best_disp;
         }
     }
-
-    // Iterate over all X and Y pixel pairs, identifying 3 pixels each time (one duplicate pixel)
-    /*for (int pair_y = 0; pair_y < (input.rows - 1) * 2; pair_y++) {
-        for (int pair_x = 0; pair_x < (input.cols - 1) * 2; pair_x++) {
-            // Compute the three input pixels from (pair_x, pair_y)
-            int target_x = (pair_x - 1) / 2,
-                target_y = (pair_y - 1) / 2;
-            int left_x = (pair_x / 2),
-                top_y = (pair_y / 2);
-
-            // TODO(fyhuang): gotta be a way to optimize this
-            int n = 0;
-            cv::Vec2f input_coords[3];
-            if (target_x == left_x || target_y == top_y) {
-                assert(n < 3);
-                input_coords[n++] = cv::Vec2f(left_x, top_y);
-            }
-            if (target_x == left_x + 1 || target_y == top_y) {
-                assert(n < 3);
-                input_coords[n++] = cv::Vec2f(left_x + 1, top_y);
-            }
-            if (target_x == left_x || target_y == top_y + 1) {
-                assert(n < 3);
-                input_coords[n++] = cv::Vec2f(left_x, top_y + 1);
-            }
-            if (target_x == left_x + 1 || target_y == top_y + 1) {
-                assert(n < 3);
-                input_coords[n++] = cv::Vec2f(left_x + 1, top_y + 1);
-            }
-
-            for (const cv::Vec2f &coord : input_coords) {
-
-            }
-        }
-    }*/
 }
 
 template void get_coords_to_check<2>(int, int, int, int, cv::Vec2i[]);

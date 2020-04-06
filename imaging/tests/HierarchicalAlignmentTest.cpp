@@ -76,18 +76,37 @@ void myprint(const cv::Mat &mat) {
 }
 
 TEST(TransferDisplacements, SimpleUpsample24) {
-    cv::Mat large_ref(16, 16, CV_8UC1, cv::Scalar(0));
-    cv::rectangle(large_ref, cv::Rect(6, 0, 4, 16), 255, cv::FILLED);
-    cv::Mat large_alt(16, 16, CV_8UC1, cv::Scalar(0));
-    cv::rectangle(large_alt, cv::Rect(8, 0, 4, 16), 255, cv::FILLED);
+    /* Ref/alt are set up so that:
+        - At 4x2 scale, tile (0, 0)'s (A) best alignment is (1, 0)
+        - At 16x4 scale, tile (1, 1) is a subtile of tile A; however, its
+          best alignment is (0, 0), not (4, 0)
+    */
+    cv::Mat large_ref(8, 16, CV_8UC1, cv::Scalar(0));
+    cv::rectangle(large_ref, cv::Rect(4, 0, 6, 4), 255, cv::FILLED);
+    cv::rectangle(large_ref, cv::Rect(4, 4, 4, 4), 128, cv::FILLED);
+    cv::rectangle(large_ref, cv::Rect(8, 4, 2, 4), 255, cv::FILLED);
+    cv::Mat large_alt(8, 16, CV_8UC1, cv::Scalar(0));
+    cv::rectangle(large_alt, cv::Rect(8, 0, 4, 8), 255, cv::FILLED);
+    cv::rectangle(large_alt, cv::Rect(4, 4, 4, 4), 128, cv::FILLED);
 
     cv::Mat small_ref, small_alt;
-    cv::resize(large_ref, small_ref, cv::Size(4, 4));
-    cv::resize(large_alt, small_alt, cv::Size(4, 4));
+    cv::resize(large_ref, small_ref, cv::Size(4, 2));
+    cv::resize(large_alt, small_alt, cv::Size(4, 2));
 
-    align::NaiveBlockAligner aligner(2, 2, small_ref, small_alt);
-    cv::Mat out;
-    aligner.align_L2(&out);
-    //std::cout << out << std::endl;
-    myprint(out);
+    align::NaiveBlockAligner aligner_l2(2, 2, small_ref, small_alt);
+    cv::Mat disp_l2;
+    aligner_l2.align_L2(&disp_l2);
+
+    align::NaiveBlockAligner aligner_l1(4, 4, large_ref, large_alt);
+    cv::Mat disp_l1;
+    transfer_displacements<2, 4>(disp_l2, &disp_l1, &aligner_l1);
+
+    EXPECT_EQ(cv::Vec2f(0, 0), disp_l1.at<cv::Vec2f>(1, 1));
+    EXPECT_EQ(cv::Vec2f(4, 0), disp_l1.at<cv::Vec2f>(0, 1));
+    
+    // Right half displacements should be unchanged
+    EXPECT_EQ(cv::Vec2f(0, 0), disp_l1.at<cv::Vec2f>(0, 2));
+    EXPECT_EQ(cv::Vec2f(0, 0), disp_l1.at<cv::Vec2f>(1, 2));
+    EXPECT_EQ(cv::Vec2f(0, 0), disp_l1.at<cv::Vec2f>(0, 3));
+    EXPECT_EQ(cv::Vec2f(0, 0), disp_l1.at<cv::Vec2f>(1, 3));
 }

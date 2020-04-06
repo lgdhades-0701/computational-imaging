@@ -18,7 +18,7 @@ public:
 class BlockAligner {
 public:
     virtual int tile_size() const = 0;
-    virtual float tile_residual_L1(float ref_tile_x, float ref_tile_y, float alt_tile_x, float alt_tile_y) const = 0;
+    virtual float disp_residual_L1(int ref_tile_x, int ref_tile_y, float disp_x, float disp_y) const = 0;
     virtual void align_L2(cv::Mat *out) = 0;
 };
 

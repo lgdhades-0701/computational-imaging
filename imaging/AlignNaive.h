@@ -22,7 +22,9 @@ static inline float calculate_residual_naive(
 #pragma warning(push)
 #pragma warning(disable : 4127)
             // Conditional expression is supposed to be constant
-            if (Norm == 2) {
+            if (Norm == 1) {
+                d_pixel = std::fabsf(d_pixel);
+            } else if (Norm == 2) {
                 d_pixel *= d_pixel;
             }
 #pragma warning(pop)
@@ -142,11 +144,13 @@ public:
         return tile_size_;
     }
 
-    float tile_residual_L1(float ref_tile_x, float ref_tile_y, float alt_tile_x, float alt_tile_y) const override {
+    float disp_residual_L1(int ref_tile_x, int ref_tile_y, float disp_x, float disp_y) const override {
+        int ref_x = ref_tile_x * tile_size_,
+            ref_y = ref_tile_y * tile_size_;
         return calculate_residual_naive<1>(
             reference_, alternate_,
-            (int)(ref_tile_x * tile_size_), (int)(ref_tile_y * tile_size_),
-            (int)(alt_tile_x * tile_size_), (int)(alt_tile_y * tile_size_),
+            ref_x, ref_y,
+            ref_x + (int)(disp_x), ref_y + (int)(disp_y),
             tile_size_, tile_size_
         );
     }

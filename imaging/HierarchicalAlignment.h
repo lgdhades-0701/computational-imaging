@@ -14,7 +14,7 @@ void get_coords_to_check(
     cv::Vec2i out_coords[3]
 );
 
-template <int ExpansionFactor>
+template <int TileExpansionFactor, int PixelExpansionFactor>
 void transfer_displacements(
     const cv::Mat &input,
     cv::Mat *output,
