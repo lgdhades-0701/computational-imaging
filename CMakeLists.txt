@@ -17,6 +17,7 @@ add_library(imaging STATIC
     imaging/targetver.h
     imaging/stdafx.h
     imaging/stdafx.cpp
+    imaging/Util.h
     imaging/BlockAligner.h
     imaging/AlignNaive.h
     imaging/HierarchicalAlignment.h
@@ -40,6 +41,13 @@ else()
     # lots of warnings and all warnings as errors
     add_compile_options(-Wall -Wextra -pedantic -Werror)
 endif()
+
+# Test application
+add_executable(align_image
+    align_image/main.cpp
+)
+target_link_libraries(align_image PRIVATE imaging)
+target_include_directories(align_image PRIVATE "${PROJECT_SOURCE_DIR}")
 
 if(PACKAGE_TESTS)
     enable_testing()

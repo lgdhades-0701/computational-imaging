@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Util.h"
 #include "BlockAligner.h"
 
 namespace align {
@@ -85,13 +86,16 @@ static void block_align_naive(
     int search_radius,
     const cv::Mat &reference,
     const cv::Mat &unaligned,
-    cv::Mat *out,
+    cv::Mat *inout_displacements,
     AlignT align_func
 ) {
-    out->create(reference.rows / tile_size, reference.cols / tile_size, CV_32FC2);
-    for (int tile_y = 0; tile_y < out->rows; tile_y++) {
-        float *out_row_ptr = reinterpret_cast<float*>(out->ptr(tile_y));
-        for (int tile_x = 0; tile_x < out->cols; tile_x++) {
+    if (inout_displacements->empty()) {
+        inout_displacements->create(reference.rows / tile_size, reference.cols / tile_size, CV_32FC2);
+        *inout_displacements = cv::Scalar(0.f);
+    }
+
+    for (int tile_y = 0; tile_y < inout_displacements->rows; tile_y++) {
+        for (int tile_x = 0; tile_x < inout_displacements->cols; tile_x++) {
             auto reference_tile_rect = cv::Rect(
                 tile_x * tile_size,
                 tile_y * tile_size,
@@ -100,16 +104,27 @@ static void block_align_naive(
             );
             cv::Mat reference_tile(reference, reference_tile_rect);
 
+            auto starting_disp_f = inout_displacements->at<cv::Vec2f>(tile_y, tile_x);
+            auto starting_disp_i = cv::Vec2i((int)starting_disp_f[0], (int)starting_disp_f[1]);
+            auto base_coords = util::clamp_point(cv::Point(
+                    tile_x * tile_size + starting_disp_i[0],
+                    tile_y * tile_size + starting_disp_i[1]
+                ),
+                cv::Rect(
+                    0, 0, unaligned.cols - tile_size, unaligned.rows - tile_size
+                )
+            );
             auto neighborhood_top_left = cv::Point(
-                std::max(0, tile_x * tile_size - search_radius),
-                std::max(0, tile_y * tile_size - search_radius)
+                std::max(0, base_coords.x - search_radius),
+                std::max(0, base_coords.y - search_radius)
+            );
+            auto neighborhood_bot_right = cv::Point(
+                std::min(unaligned.cols, base_coords.x + tile_size + search_radius),
+                std::min(unaligned.rows, base_coords.y + tile_size + search_radius)
             );
             cv::Mat unaligned_neighborhood(unaligned, cv::Rect(
                 neighborhood_top_left,
-                cv::Point(
-                    std::min(unaligned.cols, (tile_x + 1) * tile_size + search_radius),
-                    std::min(unaligned.rows, (tile_y + 1) * tile_size + search_radius)
-                )
+                neighborhood_bot_right
             ));
 
             auto disp = align_func(
@@ -119,8 +134,8 @@ static void block_align_naive(
                 neighborhood_top_left.y - reference_tile_rect.y
             );
             
-            out_row_ptr[tile_x * 2] = disp.x;
-            out_row_ptr[tile_x * 2 + 1] = disp.y;
+            inout_displacements->at<cv::Vec2f>(tile_y, tile_x) =
+                cv::Vec2f(disp.x, disp.y);
         }
     }
 }
@@ -155,8 +170,13 @@ public:
         );
     }
 
-    void align_L2(cv::Mat *out) override {
-        block_align_naive(tile_size_, search_radius_, reference_, alternate_, out, &align::align_one_naive<2>);
+    void align_L2(cv::Mat *inout_displacements) override {
+        block_align_naive(
+            tile_size_, search_radius_,
+            reference_, alternate_,
+            inout_displacements,
+            &align::align_one_naive<2>
+        );
     }
 };
 
