@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.17)
 option(PACKAGE_TESTS "Build the tests" ON)
 
 include(cmake/PrecompiledHeader.cmake)
+add_subdirectory("extern/gflags")
+# TODO(fyhuang): hack for MDd
+target_compile_options(gflags_nothreads_static PUBLIC "/MDd")
 
 project(CudaStereo LANGUAGES CXX)
 
@@ -46,7 +49,7 @@ endif()
 add_executable(align_image
     align_image/main.cpp
 )
-target_link_libraries(align_image PRIVATE imaging)
+target_link_libraries(align_image PRIVATE gflags::gflags imaging)
 target_include_directories(align_image PRIVATE "${PROJECT_SOURCE_DIR}")
 
 if(PACKAGE_TESTS)

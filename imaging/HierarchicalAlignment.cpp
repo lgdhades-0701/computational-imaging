@@ -77,12 +77,6 @@ void transfer_displacements(
     }
 }
 
-// Explicit template instantiations for unit tests
-template void get_coords_to_check<2>(int, int, int, int, cv::Vec2i[]);
-template void get_coords_to_check<4>(int, int, int, int, cv::Vec2i[]);
-template void transfer_displacements<2, 4>(const cv::Mat &, cv::Mat *, const align::BlockAligner *);
-template void transfer_displacements<4, 4>(const cv::Mat &, cv::Mat *, const align::BlockAligner *);
-
 template <typename BlockAlignerT>
 int hierarchical_align(
     const cv::Mat & reference,
@@ -121,22 +115,30 @@ int hierarchical_align(
     // Transfer displacements over to level 3 and align
     cv::Mat disp_l3;
     auto aligner_l3 = BlockAlignerT(16 /* tile_size */, 4 /* search_radius */, reference_l3, unaligned_l3);
-    transfer_displacements<2 /* 4x resolution, but 2x tile size */, 4>(disp_l4, &disp_l3, aligner_l3);
+    transfer_displacements<2 /* 4x resolution, but 2x tile size */, 4>(disp_l4, &disp_l3, &aligner_l3);
     aligner_l3.align_L2(&disp_l3);
 
     // Transfer displacements over to level 2 and align
     cv::Mat disp_l2;
-    auto aligner_l2 = BlockAlignerT(16, /* tile_size */, 4 /* search_radius */, reference_l2, unaligned_l2);
-    transfer_displacements<4, 4>(disp_l3, &disp_l2, aligner_l2);
+    auto aligner_l2 = BlockAlignerT(16 /* tile_size */, 4 /* search_radius */, reference_l2, unaligned_l2);
+    transfer_displacements<4, 4>(disp_l3, &disp_l2, &aligner_l2);
     aligner_l2.align_L2(&disp_l2);
 
     // Transfer displacements to level 1 and do final alignment
-    auto aligner_l1 = BlockAlignerT(16, /* tile_size */, 1 /* search_radius */, reference, unaligned);
-    transfer_displacements<4, 4>(disp_l2, out_displacement, aligner_l1);
+    auto aligner_l1 = BlockAlignerT(16 /* tile_size */, 1 /* search_radius */, reference, unaligned);
+    transfer_displacements<2, 2>(disp_l2, out_displacement, &aligner_l1);
     // TODO(fyhuang): should be L1 residual, not L2
     aligner_l1.align_L2(out_displacement);
 
     return 16;
 }
+
+// Explicit template instantiations for unit tests
+template void get_coords_to_check<2>(int, int, int, int, cv::Vec2i[]);
+template void get_coords_to_check<4>(int, int, int, int, cv::Vec2i[]);
+template void transfer_displacements<2, 4>(const cv::Mat &, cv::Mat *, const align::BlockAligner *);
+template void transfer_displacements<4, 4>(const cv::Mat &, cv::Mat *, const align::BlockAligner *);
+
+template int hierarchical_align<align::NaiveBlockAligner>(const cv::Mat &, const cv::Mat &, cv::Mat *);
 
 }
