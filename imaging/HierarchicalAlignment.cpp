@@ -9,8 +9,9 @@ static const cv::utils::logging::LogTag *TAG = &_TAG;
 namespace imaging_cpu {
 
 #define CHECK_DIM(var_name, alignment) \
-  if (var_name % alignment != 0) { \
-    CV_LOG_INFO(TAG, #var_name << " " << var_name << " not multiple of " << alignment << "; edge pixels may not be covered"); \
+  if ((var_name) % (alignment) != 0) { \
+    std::cout << #var_name << " " << var_name << " not multiple of " << alignment << "\n"; \
+    exit(1); \
   }
 
 template <int TileExpansionFactor>
@@ -88,8 +89,8 @@ int hierarchical_align(
         throw std::runtime_error("Matrix sizes not identical");
     }
 
-    CHECK_DIM(reference.rows, 32);
-    CHECK_DIM(reference.cols, 32);
+    CHECK_DIM(reference.rows, 32 * 8);
+    CHECK_DIM(reference.cols, 32 * 8);
 
     // Create alignment pyramid
     cv::Mat reference_l2, unaligned_l2,
