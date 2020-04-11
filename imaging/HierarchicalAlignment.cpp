@@ -134,6 +134,41 @@ int hierarchical_align(
     return 16;
 }
 
+AlignedImage compute_alignment(const Inputs &inputs) {
+    std::unique_ptr<cv::Mat> displacements(new cv::Mat());
+    int tile_size = hierarchical_align<align::NaiveBlockAligner>(
+        *inputs.reference, *inputs.alternate, displacements.get());
+
+    // Compute the reconstructed aligned image based on the displacements, rounded to pixels
+    std::unique_ptr<cv::Mat> aligned(new cv::Mat(
+        inputs.reference->rows, inputs.reference->cols, CV_8UC1, cv::Scalar(0)));
+    for (int tile_y = 0; tile_y < aligned->rows / tile_size; tile_y++) {
+        for (int tile_x = 0; tile_x < aligned->cols / tile_size; tile_x++) {
+            // Copy from alternate at tile location + displacement
+            int starting_x = tile_x * tile_size,
+                starting_y = tile_y * tile_size;
+            auto disp_float = displacements->at<cv::Vec2f>(tile_y, tile_x);
+            auto disp = cv::Vec2i(
+                (int)round(disp_float[0]),
+                (int)round(disp_float[1])
+            );
+            auto alt_tile = (*inputs.alternate)(cv::Rect(
+                starting_x + disp[0], starting_y + disp[1], tile_size, tile_size
+            ));
+            auto aligned_tile = (*aligned)(cv::Rect(
+                starting_x, starting_y, tile_size, tile_size
+            ));
+            alt_tile.copyTo(aligned_tile);
+        }
+    }
+
+    return AlignedImage(
+        tile_size,
+        std::move(displacements),
+        std::move(aligned)
+    );
+}
+
 // Explicit template instantiations for unit tests
 template void get_coords_to_check<2>(int, int, int, int, cv::Vec2i[]);
 template void get_coords_to_check<4>(int, int, int, int, cv::Vec2i[]);

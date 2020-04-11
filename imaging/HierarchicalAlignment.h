@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BlockAligner.h"
+#include "SuperResPipeline.h"
 
 namespace imaging_cpu {
 
@@ -29,5 +30,7 @@ int hierarchical_align(
     const cv::Mat & unaligned,
     cv::Mat *out_displacement
 );
+
+AlignedImage compute_alignment(const Inputs &inputs);
 
 }

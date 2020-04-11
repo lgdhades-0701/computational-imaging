@@ -25,6 +25,9 @@ add_library(imaging STATIC
     imaging/AlignNaive.h
     imaging/HierarchicalAlignment.h
     imaging/HierarchicalAlignment.cpp
+    imaging/RobustnessMask.h
+    imaging/KernelReconstruction.h
+    imaging/SuperResPipeline.h
 )
 
 target_include_directories(imaging PUBLIC extern/opencv/build/include)
@@ -51,6 +54,13 @@ add_executable(align_image
 )
 target_link_libraries(align_image PRIVATE gflags::gflags imaging)
 target_include_directories(align_image PRIVATE "${PROJECT_SOURCE_DIR}")
+
+# Super resolution app
+add_executable(super_res
+    super_res/main.cpp
+)
+target_link_libraries(super_res PRIVATE gflags::gflags imaging)
+target_include_directories(super_res PRIVATE "${PROJECT_SOURCE_DIR}")
 
 if(PACKAGE_TESTS)
     enable_testing()

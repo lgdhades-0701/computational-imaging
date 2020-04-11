@@ -14,6 +14,10 @@
 // reference additional headers your program requires here
 #include <stdio.h>
 
+#include <cmath>
+#include <memory>
+#include <vector>
+
 #pragma warning(push)
 #pragma warning(disable : 4819)
 #include <opencv2/opencv.hpp>
