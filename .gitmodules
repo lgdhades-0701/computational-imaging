@@ -4,3 +4,6 @@
 [submodule "extern/gflags"]
 	path = extern/gflags
 	url = https://github.com/gflags/gflags.git
+[submodule "extern/win32cmake"]
+	path = extern/win32cmake
+	url = /home/fyhuang/Projects/win32cmake/
