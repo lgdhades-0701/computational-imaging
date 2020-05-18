@@ -1,7 +1,9 @@
 #pragma once
 
-#include "BlockAligner.h"
-#include "SuperResPipeline.h"
+#include <opencv2/opencv.hpp>
+
+#include "imaging/alignment/block_aligner.h"
+#include "imaging/SuperResPipeline.h"
 
 namespace imaging_cpu {
 

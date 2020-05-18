@@ -1,5 +1,5 @@
 #include "imaging/stdafx.h"
-#include "imaging/HierarchicalAlignment.h"
+#include "imaging/alignment/hier_align.h"
 
 #include <gtest/gtest.h>
 
@@ -57,7 +57,7 @@ TEST(GetCoordsToCheck, ExpansionFactor4) {
     EXPECT_TRUE(array_contains(coords, cv::Vec2i(1, 3)));
 }
 
-#include "imaging/AlignNaive.h"
+#include "imaging/alignment/block_align.h"
 
 void myprint(const cv::Mat &mat) {
     for (int y = 0; y < mat.rows; y++) {

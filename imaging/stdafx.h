@@ -17,9 +17,9 @@
 #include <cmath>
 #include <memory>
 #include <vector>
+#include <algorithm>
 
 #pragma warning(push)
 #pragma warning(disable : 4819)
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/utils/logger.hpp>
 #pragma warning(pop)

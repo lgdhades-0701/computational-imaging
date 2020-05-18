@@ -4,8 +4,8 @@
 
 namespace imaging_cpu {
 
-constexpr float PARAM_S = 5.0f;
-constexpr float PARAM_T = 0.2f;
+constexpr float PARAM_S = 1.0f;
+constexpr float PARAM_T = 0.0f;
 
 static void calculate_robustness_mask(
     const cv::Mat &reference,

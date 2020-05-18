@@ -4,6 +4,7 @@
 #include "imaging/SuperResPipeline.h"
 #include "imaging/HierarchicalAlignment.h"
 #include "imaging/RobustnessMask.h"
+#include "imaging/KernelReconstruction.h"
 
 DEFINE_string(ref, "", "Filename of reference image");
 DEFINE_string(alt, "", "Filename of alternate image");
@@ -65,8 +66,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    cv::imshow("Reference", reference);
-    cv::imshow("Merged", merged);
+    cv::imshow("Aligned", *aligned_image.aligned);
+    cv::imshow("Robustness", robustness);
     cv::waitKey(0);
     
     return 0;

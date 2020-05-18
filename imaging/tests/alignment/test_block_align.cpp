@@ -1,24 +1,48 @@
 #include "imaging/stdafx.h"
-#include "imaging/AlignNaive.h"
+#include "imaging/alignment/block_align.h"
 
 #include <gtest/gtest.h>
 
+using namespace cv;
 using namespace align;
+using namespace imaging::alignment;
+
+TEST(CalculateResidual, Zero) {
+    Mat_<uint8_t> a(Size(8, 8), 0);
+    float residual;
+    
+    residual = calculate_residual<1>(a, a);
+    EXPECT_EQ(0.0f, residual);
+    residual = calculate_residual<2>(a, a);
+    EXPECT_EQ(0.0f, residual);
+}
+
+TEST(CalculateResidual, L1vsL2) {
+    Mat_<uint8_t> a(Size(8, 8), 0);
+    Mat_<uint8_t> b(Size(8, 8), 0);
+    a(1, 1) = 4;
+
+    float residual;
+    residual = calculate_residual<1>(a, b);
+    EXPECT_FLOAT_EQ(4.0f, residual);
+    residual = calculate_residual<2>(a, b);
+    EXPECT_FLOAT_EQ(16.0f, residual);
+}
 
 TEST(AlignOneNaive, EightByEight) {
-    cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
-    cv::Mat neighborhood(16, 16, CV_8UC1, cv::Scalar(0));
+    Mat_<uint8_t> reference(Size(8, 8), 255);
+    Mat_<uint8_t> neighborhood(Size(16, 16), 0);
     cv::rectangle(neighborhood, cv::Rect(4, 4, 8, 8), 255, cv::FILLED);
 
     EXPECT_EQ(
-        Disp(4, 4),
-        align_one_naive<1>(reference, neighborhood, 0, 0)
+        Vec2i(4, 4),
+        align_one_block<1>(reference, neighborhood)
     );
 }
 
 TEST(AlignOneNaive, EightByEightWithNoise) {
-    cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
-    cv::Mat neighborhood(16, 16, CV_8UC1, cv::Scalar(0));
+    Mat_<uint8_t> reference(Size(8, 8), 255);
+    Mat_<uint8_t> neighborhood(Size(16, 16), 0);
     cv::rectangle(neighborhood, cv::Rect(4, 4, 8, 8), 255, cv::FILLED);
 
     // Add some noise
@@ -26,61 +50,105 @@ TEST(AlignOneNaive, EightByEightWithNoise) {
     neighborhood.at<uint8_t>(8, 10) = 0;
     
     EXPECT_EQ(
-        Disp(4, 4),
-        align_one_naive<1>(reference, neighborhood, 0, 0)
+        Vec2i(4, 4),
+        align_one_block<1>(reference, neighborhood)
     );
 
     EXPECT_EQ(
-        Disp(4, 4),
-        align_one_naive<2>(reference, neighborhood, 0, 0)
+        Vec2i(4, 4),
+        align_one_block<2>(reference, neighborhood)
     );
 }
 
 TEST(AlignOneNaive, EightByEightPickBest) {
-    cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
-    cv::Mat neighborhood(8, 16, CV_8UC1, cv::Scalar(240));
+    Mat_<uint8_t> reference(Size(8, 8), 255);
+    Mat_<uint8_t> neighborhood(Size(16, 16), 240);
     cv::rectangle(neighborhood, cv::Rect(0, 0, 8, 8), 230, cv::FILLED);
 
     EXPECT_EQ(
-        Disp(8, 0),
-        align_one_naive<2>(reference, neighborhood, 0, 0)
+        Vec2i(8, 0),
+        align_one_block<2>(reference, neighborhood)
     );
 }
 
 TEST(AlignOneNaive, BreakTies) {
-    cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
-    cv::Mat neighborhood(9, 8, CV_8UC1, cv::Scalar(240));
+    Mat_<uint8_t> reference(Size(8, 8), 255);
+    Mat_<uint8_t> neighborhood(Size(16, 16), 240);
 
     EXPECT_EQ(
-        Disp(0, 0),
-        align_one_naive<2>(reference, neighborhood, 0, 0)
+        Vec2i(0, 0),
+        align_one_block<2>(reference, neighborhood)
     );
 }
 
 TEST(AlignOneNaive, AdjustByOffset) {
-    cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
-    cv::Mat neighborhood(8, 16, CV_8UC1, cv::Scalar(240));
+    Mat_<uint8_t> reference(Size(8, 8), 255);
+    Mat_<uint8_t> neighborhood(Size(16, 16), 240);
     cv::rectangle(neighborhood, cv::Rect(0, 0, 8, 8), 230, cv::FILLED);
 
     EXPECT_EQ(
-        Disp(0, 0),
-        align_one_naive<2>(reference, neighborhood, -8, 0)
+        Vec2i(0, 0),
+        align_one_block<2>(reference, neighborhood, cv::Vec2i(-8, 0))
     );
 }
 
 TEST(AlignOneNaive, AliasedLine) {
-    cv::Mat reference(2, 2, CV_8UC1, cv::Scalar(0));
+    Mat_<uint8_t> reference(Size(2, 2), 0);
     cv::rectangle(reference, cv::Rect(1, 0, 1, 2), 128, cv::FILLED);
-    cv::Mat neighborhood(4, 4, CV_8UC1, cv::Scalar(0));
+    Mat_<uint8_t> neighborhood(Size(4, 4), 0);
     cv::rectangle(neighborhood, cv::Rect(2, 0, 1, 4), 255, cv::FILLED);
 
     EXPECT_EQ(
-        Disp(1, 0),
-        align_one_naive<2>(reference, neighborhood, 0, 0)
+        Vec2i(1, 0),
+        align_one_block<2>(reference, neighborhood)
     );
 }
 
-TEST(BlockAlignNaive, OneTile) {
+TEST(LucasKanadeRefiner, Gradients) {
+    float data[] = {
+        0, 32, 64, 0,
+        32, 64, 96, 32,
+        64, 96, 128, 64,
+        0, 32, 64, 0,
+    };
+    Mat_<float> mat(4, 4, data);
+
+    LucasKanadeRefiner refiner(mat, mat);
+    EXPECT_EQ(refiner.ref_gradient_x(1, 1), refiner.ref_gradient_x(2, 1));
+    EXPECT_TRUE(refiner.ref_gradient_x(1, 2) < 0.0f);
+
+    EXPECT_EQ(refiner.ref_gradient_y(1, 1), refiner.ref_gradient_y(1, 2));
+    EXPECT_EQ(refiner.ref_gradient_x(1, 1), refiner.ref_gradient_y(1, 1));
+}
+
+TEST(LucasKanadeRefiner, Easy) {
+    Mat_<float> ref(16, 16), alt(16, 16);
+    for (int y = 0; y < ref.rows; y++) {
+        for (int x = 0; x < ref.cols; x++) {
+            // Gradient points toward the right
+            ref(y, x) = (float)x;
+            // True displacement is (2.0, 0.0)
+            alt(y, x) = (float)x + 2.0f;
+        }
+    }
+
+    LucasKanadeRefiner refiner(ref, alt);
+
+    std::cout << refiner.alt_gradient_x << std::endl;
+    std::cout << refiner.alt_gradient_y << std::endl;
+
+    /*cv::Vec2f iter1 = refiner.refine(cv::Rect(2, 2, 4, 4), cv::Vec2f(), 1);
+    EXPECT_TRUE(iter1[0] > 0.0f && iter1[1] > 0.0f);
+
+    cv::Vec2f iter2 = refiner.refine(cv::Rect(2, 2, 4, 4), iter1, 1);
+    EXPECT_TRUE(iter2[0] > iter1[0] && iter2[1] > iter1[1]);*/
+    
+    // After ~5 iterations, should be pretty close to the right solution
+    cv::Vec2f final_result = refiner.refine(cv::Rect(1, 1, 4, 4), cv::Vec2f(), 5);
+    EXPECT_NEAR(2.0f, final_result[0], 0.1f);
+}
+
+/*TEST(BlockAlignNaive, OneTile) {
     cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
     cv::Mat unaligned(8, 8, CV_8UC1, cv::Scalar(240));
 
@@ -95,7 +163,7 @@ TEST(BlockAlignNaive, OneTile) {
     };
 
     cv::Mat out;
-    block_align_naive(8, 0, reference, unaligned, &out, test_align);
+    block_align_images(8, 0, reference, unaligned, &out, test_align);
     auto disp = out.at<cv::Vec2f>(0, 0);
     EXPECT_EQ(cv::Vec2f(4, 4), disp);
 }
@@ -113,7 +181,7 @@ TEST(BlockAlignNaive, TilesWithNeighborhood) {
     };
 
     cv::Mat out;
-    block_align_naive(8, 2, reference, unaligned, &out, test_align);
+    block_align_images(8, 2, reference, unaligned, &out, test_align);
     EXPECT_EQ(2, out.cols);
     EXPECT_EQ(2, out.rows);
 
@@ -123,7 +191,7 @@ TEST(BlockAlignNaive, TilesWithNeighborhood) {
     EXPECT_EQ(cv::Vec2f(4, 4), out.at<cv::Vec2f>(1, 1));
 }
 
-TEST(BlockAlignNaive, WithStartingDisp) {
+/*TEST(BlockAlignNaive, WithStartingDisp) {
     cv::Mat reference(2, 8, CV_8UC1, cv::Scalar(128));
     cv::rectangle(reference, cv::Rect(0, 0, 2, 2), 255, cv::FILLED);
     cv::Mat unaligned(2, 8, CV_8UC1, cv::Scalar(0));
@@ -184,4 +252,4 @@ TEST(BlockAlignNaive, StartingDispDoesntExceedBounds) {
     disp.at<cv::Vec2f>(0, 0) = cv::Vec2f(-100, 0);
     disp.at<cv::Vec2f>(1, 1) = cv::Vec2f(2, 87);
     block_align_naive(2, 1, reference, alternate, &disp, test_align);
-}
+}*/

@@ -1,10 +1,7 @@
-#include "stdafx.h"
+#include "imaging/stdafx.h"
 
-#include "HierarchicalAlignment.h"
-#include "AlignNaive.h"
-
-static const cv::utils::logging::LogTag _TAG("HAlign", cv::utils::logging::LOG_LEVEL_INFO);
-static const cv::utils::logging::LogTag *TAG = &_TAG;
+#include "imaging/alignment/hier_align.h"
+#include "imaging/alignment/block_align.h"
 
 namespace imaging_cpu {
 
