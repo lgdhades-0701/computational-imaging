@@ -74,18 +74,6 @@ cv::Vec2i align_one_block(
     return best.corrected_disp;
 }
 
-struct LucasKanadeRefiner {
-    constexpr static float LK_INVERTIBLE_THRESHOLD = 0.01f;
-    
-    const cv::Mat_<float> &reference, &alternate;
-    cv::Mat_<float> ref_gradient_x, ref_gradient_y;
-    cv::Mat_<float> alt_gradient_x, alt_gradient_y;
-
-    LucasKanadeRefiner(const cv::Mat_<float> &reference, const cv::Mat_<float> &alternate);
-
-    cv::Vec2f refine(cv::Rect ref_block, cv::Vec2f initial_disp, int num_iterations);
-};
-
 }
 }
 

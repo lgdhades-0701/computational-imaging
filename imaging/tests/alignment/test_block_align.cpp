@@ -104,50 +104,6 @@ TEST(AlignOneNaive, AliasedLine) {
     );
 }
 
-TEST(LucasKanadeRefiner, Gradients) {
-    float data[] = {
-        0, 32, 64, 0,
-        32, 64, 96, 32,
-        64, 96, 128, 64,
-        0, 32, 64, 0,
-    };
-    Mat_<float> mat(4, 4, data);
-
-    LucasKanadeRefiner refiner(mat, mat);
-    EXPECT_EQ(refiner.ref_gradient_x(1, 1), refiner.ref_gradient_x(2, 1));
-    EXPECT_TRUE(refiner.ref_gradient_x(1, 2) < 0.0f);
-
-    EXPECT_EQ(refiner.ref_gradient_y(1, 1), refiner.ref_gradient_y(1, 2));
-    EXPECT_EQ(refiner.ref_gradient_x(1, 1), refiner.ref_gradient_y(1, 1));
-}
-
-TEST(LucasKanadeRefiner, Easy) {
-    Mat_<float> ref(16, 16), alt(16, 16);
-    for (int y = 0; y < ref.rows; y++) {
-        for (int x = 0; x < ref.cols; x++) {
-            // Gradient points toward the right
-            ref(y, x) = (float)x;
-            // True displacement is (2.0, 0.0)
-            alt(y, x) = (float)x + 2.0f;
-        }
-    }
-
-    LucasKanadeRefiner refiner(ref, alt);
-
-    std::cout << refiner.alt_gradient_x << std::endl;
-    std::cout << refiner.alt_gradient_y << std::endl;
-
-    /*cv::Vec2f iter1 = refiner.refine(cv::Rect(2, 2, 4, 4), cv::Vec2f(), 1);
-    EXPECT_TRUE(iter1[0] > 0.0f && iter1[1] > 0.0f);
-
-    cv::Vec2f iter2 = refiner.refine(cv::Rect(2, 2, 4, 4), iter1, 1);
-    EXPECT_TRUE(iter2[0] > iter1[0] && iter2[1] > iter1[1]);*/
-    
-    // After ~5 iterations, should be pretty close to the right solution
-    cv::Vec2f final_result = refiner.refine(cv::Rect(1, 1, 4, 4), cv::Vec2f(), 5);
-    EXPECT_NEAR(2.0f, final_result[0], 0.1f);
-}
-
 /*TEST(BlockAlignNaive, OneTile) {
     cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
     cv::Mat unaligned(8, 8, CV_8UC1, cv::Scalar(240));

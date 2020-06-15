@@ -8,17 +8,15 @@ include(extern/win32cmake/PrecompiledHeader.cmake)
 add_subdirectory("extern/gflags")
 force_target_msvc_crt(gflags_nothreads_static)
 
+add_library(eigen INTERFACE)
+target_include_directories(eigen INTERFACE "extern/eigen-3.3.7")
+
 project(ComputationalImaging LANGUAGES CXX)
 
 set(OpenCV_DIR "extern/opencv")
 find_package(OpenCV)
-#set(OPENCV_ROOT "${PROJECT_SOURCE_DIR}/extern/opencv/build")
-#add_library(opencv SHARED IMPORTED GLOBAL)
-#set_property(TARGET opencv PROPERTY IMPORTED_IMPLIB_RELEASE "${OPENCV_ROOT}/x64/vc15/lib/opencv_world420.lib")
-#set_property(TARGET opencv PROPERTY IMPORTED_LOCATION_RELEASE "${OPENCV_ROOT}/x64/vc15/bin/opencv_world420.dll")
-#set_property(TARGET opencv PROPERTY IMPORTED_IMPLIB_DEBUG "${OPENCV_ROOT}/x64/vc15/lib/opencv_world420d.lib")
-#set_property(TARGET opencv PROPERTY IMPORTED_LOCATION_DEBUG "${OPENCV_ROOT}/x64/vc15/bin/opencv_world420d.dll")
 
+# Imaging library
 add_library(imaging STATIC
     imaging/targetver.h
     imaging/stdafx.h
@@ -28,6 +26,8 @@ add_library(imaging STATIC
     imaging/alignment/block_aligner.h
     imaging/alignment/block_align.h
     imaging/alignment/block_align.cpp
+    imaging/alignment/lucas_kanade.h
+    imaging/alignment/lucas_kanade.cpp
     #imaging/alignment/hier_align.h
     #imaging/alignment/hier_align.cpp
     imaging/alignment/robustness_mask.h
@@ -37,12 +37,29 @@ add_library(imaging STATIC
 get_target_property(imaging_sources imaging SOURCES)
 source_group(TREE "${PROJECT_SOURCE_DIR}/imaging" FILES ${imaging_sources})
 
-target_include_directories(imaging PUBLIC extern/opencv/build/include)
 target_include_directories(imaging PUBLIC "${PROJECT_SOURCE_DIR}")
-target_link_libraries(imaging PUBLIC opencv_world)
+target_link_libraries(imaging PUBLIC opencv_world eigen)
 add_precompiled_header(imaging stdafx.h FORCEINCLUDE SOURCE_CXX imaging/stdafx.cpp)
 target_post_build_copy_dll(imaging opencv_world)
 target_wall_werror(imaging)
+target_compile_options(imaging PRIVATE /wd4505)
+
+# gentestimg library
+add_library(gentestimg STATIC
+    gentestimg/image_generator.h
+    gentestimg/image_generator.cpp
+)
+
+target_include_directories(gentestimg PUBLIC "${PROJECT_SOURCE_DIR}")
+target_link_libraries(gentestimg PUBLIC opencv_world)
+target_wall_werror(gentestimg)
+
+add_executable(gentestimg_cmd
+    cmd/gentestimg.cpp
+)
+target_link_libraries(gentestimg_cmd PRIVATE gflags::gflags gentestimg)
+set_target_properties(gentestimg_cmd PROPERTIES OUTPUT_NAME gentestimg)
+
 
 # Test application
 #add_executable(align_image
@@ -62,13 +79,10 @@ if(PACKAGE_TESTS)
     enable_testing_gtest("extern/googletest")
     add_gtest_tests(imaging_tests
         imaging/tests/main.cpp
+        imaging/tests/test_util.cpp
         imaging/tests/alignment/test_block_align.cpp
+        imaging/tests/alignment/test_lucas_kanade.cpp
         #imaging/tests/alignment/test_hier_align.cpp
     )
     target_link_libraries(imaging_tests imaging)
-    #gtest_discover_tests(imaging_tests
-    #    WORKING_DIRECTORY "${PROJECT_DIR}"
-    #    PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_DIR}"
-    #               VS_DEBUGGER_ENVIRONMENT "PATH=%PATH%;${PROJECT_DIR}/extern/opencv/build/x64/vc15/bin"
-    #)
 endif()
