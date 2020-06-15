@@ -11,38 +11,7 @@ namespace imaging_cpu {
     exit(1); \
   }
 
-template <int TileExpansionFactor>
-inline void get_coords_to_check(
-    int input_width,
-    int input_height,
-    int expanded_x,
-    int expanded_y,
-    cv::Vec2i out_coords[3]
-) {
-    constexpr int half_expansion = TileExpansionFactor / 2;
-    int nearest_x = expanded_x / TileExpansionFactor,
-        nearest_y = expanded_y / TileExpansionFactor;
 
-    int next_nearest_x;
-    if ((expanded_x + half_expansion) / TileExpansionFactor == nearest_x) {
-        next_nearest_x = std::max(nearest_x - 1, 0);
-    }
-    else {
-        next_nearest_x = std::min(nearest_x + 1, input_width - 1);
-    }
-
-    int next_nearest_y;
-    if ((expanded_y + half_expansion) / TileExpansionFactor == nearest_y) {
-        next_nearest_y = std::max(nearest_y - 1, 0);
-    }
-    else {
-        next_nearest_y = std::min(nearest_y + 1, input_height - 1);
-    }
-
-    out_coords[0] = cv::Vec2i(nearest_x, nearest_y);
-    out_coords[1] = cv::Vec2i(next_nearest_x, nearest_y);
-    out_coords[2] = cv::Vec2i(nearest_x, next_nearest_y);
-}
 
 template <int TileExpansionFactor, int PixelExpansionFactor>
 void transfer_displacements(
@@ -50,29 +19,7 @@ void transfer_displacements(
     cv::Mat *output,
     const align::BlockAligner *aligner
 ) {
-    // Upsampling the coarse alignment to the next level of the pyramid
-    output->create(input.rows * TileExpansionFactor, input.cols * TileExpansionFactor, CV_32FC2);
-    for (int out_y = 0; out_y < output->rows; out_y++) {
-        for (int out_x = 0; out_x < output->cols; out_x++) {
-            cv::Vec2i coords_to_check[3];
-            get_coords_to_check<TileExpansionFactor>(input.cols, input.rows, out_x, out_y, coords_to_check);
 
-            // Check all three inputs
-            float best_residual = std::numeric_limits<float>::infinity();
-            cv::Vec2f best_disp;
-            for (const auto coord : coords_to_check) {
-                cv::Vec2f disp = input.at<cv::Vec2f>(coord[1], coord[0]) * PixelExpansionFactor;
-                float residual = aligner->disp_residual_L1(out_x, out_y, disp[0], disp[1]);
-                if (residual < best_residual) {
-                    best_residual = residual;
-                    best_disp = disp;
-                }
-            }
-            
-            // Set the output to the best displacement
-            output->at<cv::Vec2f>(out_y, out_x) = best_disp;
-        }
-    }
 }
 
 template <typename BlockAlignerT>
@@ -173,5 +120,77 @@ template void transfer_displacements<2, 4>(const cv::Mat &, cv::Mat *, const ali
 template void transfer_displacements<4, 4>(const cv::Mat &, cv::Mat *, const align::BlockAligner *);
 
 template int hierarchical_align<align::NaiveBlockAligner>(const cv::Mat &, const cv::Mat &, cv::Mat *);
+
+namespace detail {
+
+inline void get_coords_to_check(
+    cv::Size source_size,
+    int expansion_factor,
+    cv::Vec2i dest_coord,
+    cv::Vec2i out_coords[3]
+) {
+    assert(expansion_factor % 2 == 0);
+    const int half_expansion = expansion_factor / 2;
+    cv::Vec2i source_coord = dest_coord / expansion_factor;
+    cv::Vec2i dest_coord_floor = source_coord * expansion_factor;
+
+    int next_nearest_x;
+    if (dest_coord[0] - dest_coord_floor[0] >= half_expansion) {
+        next_nearest_x = source_coord[0] + 1;
+    }
+    else {
+        next_nearest_x = source_coord[0] - 1;
+    }
+    next_nearest_x = cv::borderInterpolate(next_nearest_x, source_size.width, cv::BORDER_REPLICATE);
+
+    int next_nearest_y;
+    if (dest_coord[1] - dest_coord_floor[1] >= half_expansion) {
+        next_nearest_y = source_coord[1] + 1;
+    }
+    else {
+        next_nearest_y = source_coord[1] - 1;
+    }
+    next_nearest_y = cv::borderInterpolate(next_nearest_y, source_size.height, cv::BORDER_REPLICATE);
+
+    out_coords[0] = source_coord;
+    out_coords[1] = cv::Vec2i(next_nearest_x, source_coord[1]);
+    out_coords[2] = cv::Vec2i(source_coord[0], next_nearest_y);
+}
+
+void AlignLevel::seed_initial_displacements(const AlignLevel &prev_level)
+{
+    // Upsample the displacements from the previous level of the pyramid to this one
+    assert(prev_level.downscale > downscale);
+    int pixel_expansion_factor = prev_level.downscale / downscale;
+    int tile_expansion_factor = pixel_expansion_factor * tile_size / prev_level.tile_size;
+
+    printf("prev_level = %d (%dx%d), level = %d (%dx%d)\n",
+        prev_level.downscale, prev_level.ref.cols, prev_level.ref.rows,
+        downscale, ref.cols, ref.rows);
+
+    for (int out_y = 0; out_y < initial_disp.rows; out_y++) {
+        for (int out_x = 0; out_x < initial_disp.cols; out_x++) {
+            cv::Vec2i coords_to_check[3];
+            get_coords_to_check(prev_level.ending_disp.size(), tile_expansion_factor, cv::Vec2i(out_x, out_y), coords_to_check);
+
+            // Check all three inputs
+            float best_residual = std::numeric_limits<float>::infinity();
+            cv::Vec2f best_disp;
+            for (const auto coord : coords_to_check) {
+                cv::Vec2f disp = prev_level.ending_disp(coord[1], coord[0]) * pixel_expansion_factor;
+                float residual = aligner->disp_residual_L1(out_x, out_y, disp[0], disp[1]);
+                if (residual < best_residual) {
+                    best_residual = residual;
+                    best_disp = disp;
+                }
+            }
+
+            // Set the output to the best displacement
+            output->at<cv::Vec2f>(out_y, out_x) = best_disp;
+        }
+    }
+}
+
+}
 
 }

@@ -74,57 +74,46 @@ cv::Vec2i align_one_block(
     return best.corrected_disp;
 }
 
-}
-}
+struct BlockAligner {
+    virtual ~BlockAligner() {}
+    //virtual int tile_size() const = 0;
+    virtual float disp_residual_L1(cv::Vec2i tile_coord, cv::Vec2f disp) const = 0;
+    virtual void align(const cv::Mat_<cv::Vec2f> &in_disp, cv::Mat_<cv::Vec2f> *out_disp) = 0;
+};
 
-namespace align {
-
-template <typename T>
-void block_align_images(
-    int tile_size,
-    int search_radius,
-    const cv::Mat_<T> &reference,
-    const cv::Mat_<T> &unaligned,
-    cv::Mat_<cv::Vec2f> *inout_displacements,
-    std::function<cv::Vec2i(const cv::Mat_<T> &, const cv::Mat_<T> &, cv::Vec2i)> align_func
-);
-
-/*class NaiveBlockAligner : public BlockAligner {
-private:
-    int tile_size_;
-    int search_radius_;
-    const cv::Mat &reference_;
-    const cv::Mat &alternate_;
+struct CpuBlockAligner : public BlockAligner {
+    int align_norm_;
+    int tile_size_, search_radius_;
+    const cv::Mat_<float> &ref_, &alt_;
 
 public:
-    NaiveBlockAligner(int tile_size, int search_radius, const cv::Mat &reference, const cv::Mat &alternate)
-        : tile_size_(tile_size),
+    CpuBlockAligner(int align_norm, int tile_size, int search_radius, const cv::Mat_<float> &ref, const cv::Mat_<float> &alt)
+        : align_norm_(align_norm),
+        tile_size_(tile_size),
         search_radius_(search_radius),
-        reference_(reference),
-        alternate_(alternate)
-    {}
-
-    int tile_size() const {
-        return tile_size_;
+        ref_(ref),
+        alt_(alt)
+    {
+        assert(align_norm == 1 || align_norm == 2);
     }
 
-    float disp_residual_L1(int ref_tile_x, int ref_tile_y, float disp_x, float disp_y) const override {
-        int ref_x = ref_tile_x * tile_size_,
-            ref_y = ref_tile_y * tile_size_;
-        return imaging::alignment::calculate_residual<1, uint8_t>(
-            reference_(cv::Rect(ref_x, ref_y, tile_size_, tile_size_)),
-            alternate_(cv::Rect(ref_x + (int)disp_x, ref_y + (int)disp_y, tile_size_, tile_size_))
-        );
-    }
+    float disp_residual_L1(cv::Vec2i tile_coord, cv::Vec2f disp) const override;
+    void align(const cv::Mat_<cv::Vec2f> &in_disp, cv::Mat_<cv::Vec2f> *out_disp) override;
+};
 
-    void align_L2(cv::Mat *inout_displacements) override {
-        block_align_images(
-            tile_size_, search_radius_,
-            reference_, alternate_,
-            inout_displacements,
-            &align::align_one_naive<2>
-        );
-    }
-};*/
+namespace detail {
 
+void block_align_images(
+    int align_norm,
+    int tile_size,
+    int search_radius,
+    const cv::Mat_<float> &reference,
+    const cv::Mat_<float> &unaligned,
+    const cv::Mat_<cv::Vec2f> &in_displacements,
+    cv::Mat_<cv::Vec2f> *out_displacements
+);
+
+}
+
+}
 }

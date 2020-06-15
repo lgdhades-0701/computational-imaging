@@ -29,7 +29,7 @@ TEST(CalculateResidual, L1vsL2) {
     EXPECT_FLOAT_EQ(16.0f, residual);
 }
 
-TEST(AlignOneNaive, EightByEight) {
+TEST(AlignOneBlock, EightByEight) {
     Mat_<uint8_t> reference(Size(8, 8), 255);
     Mat_<uint8_t> neighborhood(Size(16, 16), 0);
     cv::rectangle(neighborhood, cv::Rect(4, 4, 8, 8), 255, cv::FILLED);
@@ -40,7 +40,7 @@ TEST(AlignOneNaive, EightByEight) {
     );
 }
 
-TEST(AlignOneNaive, EightByEightWithNoise) {
+TEST(AlignOneBlock, EightByEightWithNoise) {
     Mat_<uint8_t> reference(Size(8, 8), 255);
     Mat_<uint8_t> neighborhood(Size(16, 16), 0);
     cv::rectangle(neighborhood, cv::Rect(4, 4, 8, 8), 255, cv::FILLED);
@@ -60,7 +60,7 @@ TEST(AlignOneNaive, EightByEightWithNoise) {
     );
 }
 
-TEST(AlignOneNaive, EightByEightPickBest) {
+TEST(AlignOneBlock, EightByEightPickBest) {
     Mat_<uint8_t> reference(Size(8, 8), 255);
     Mat_<uint8_t> neighborhood(Size(16, 16), 240);
     cv::rectangle(neighborhood, cv::Rect(0, 0, 8, 8), 230, cv::FILLED);
@@ -71,7 +71,7 @@ TEST(AlignOneNaive, EightByEightPickBest) {
     );
 }
 
-TEST(AlignOneNaive, BreakTies) {
+TEST(AlignOneBlock, BreakTies) {
     Mat_<uint8_t> reference(Size(8, 8), 255);
     Mat_<uint8_t> neighborhood(Size(16, 16), 240);
 
@@ -81,7 +81,7 @@ TEST(AlignOneNaive, BreakTies) {
     );
 }
 
-TEST(AlignOneNaive, AdjustByOffset) {
+TEST(AlignOneBlock, AdjustByOffset) {
     Mat_<uint8_t> reference(Size(8, 8), 255);
     Mat_<uint8_t> neighborhood(Size(16, 16), 240);
     cv::rectangle(neighborhood, cv::Rect(0, 0, 8, 8), 230, cv::FILLED);
@@ -92,7 +92,7 @@ TEST(AlignOneNaive, AdjustByOffset) {
     );
 }
 
-TEST(AlignOneNaive, AliasedLine) {
+TEST(AlignOneBlock, AliasedLine) {
     Mat_<uint8_t> reference(Size(2, 2), 0);
     cv::rectangle(reference, cv::Rect(1, 0, 1, 2), 128, cv::FILLED);
     Mat_<uint8_t> neighborhood(Size(4, 4), 0);
@@ -104,108 +104,65 @@ TEST(AlignOneNaive, AliasedLine) {
     );
 }
 
-/*TEST(BlockAlignNaive, OneTile) {
-    cv::Mat reference(8, 8, CV_8UC1, cv::Scalar(255));
-    cv::Mat unaligned(8, 8, CV_8UC1, cv::Scalar(240));
 
-    auto test_align = [](const cv::Mat &ref, const cv::Mat &n, int ox, int oy) -> Disp {
-        EXPECT_EQ(8, ref.rows);
-        EXPECT_EQ(8, ref.cols);
-        EXPECT_EQ(8, n.rows);
-        EXPECT_EQ(8, n.cols);
-        EXPECT_EQ(0, ox);
-        EXPECT_EQ(0, oy);
-        return Disp(4, 4);
-    };
+TEST(CpuBlockAligner, Basic) {
+    cv::Mat_<float> reference(16, 16, 0.0f);
+    cv::rectangle(reference, cv::Rect(4, 4, 8, 8), 1.0f, cv::FILLED);
+    cv::Mat_<float> alternate(16, 16, 0.0f);
+    cv::rectangle(alternate, cv::Rect(6, 6, 8, 8), 1.0f, cv::FILLED);
 
-    cv::Mat out;
-    block_align_images(8, 0, reference, unaligned, &out, test_align);
-    auto disp = out.at<cv::Vec2f>(0, 0);
-    EXPECT_EQ(cv::Vec2f(4, 4), disp);
+    CpuBlockAligner aligner(2, 8 /* tile_size */, 4 /* search_radius */, reference, alternate);
+
+    cv::Mat_<cv::Vec2f> in_disp(2, 2, cv::Vec2f());
+    cv::Mat_<cv::Vec2f> out_disp(2, 2);
+    aligner.align(in_disp, &out_disp);
+
+    cv::Vec2f result = out_disp(0, 0);
+    EXPECT_FLOAT_EQ(2.0f, result[0]);
+    EXPECT_FLOAT_EQ(2.0f, result[1]);
 }
 
-TEST(BlockAlignNaive, TilesWithNeighborhood) {
-    cv::Mat reference(16, 16, CV_8UC1, cv::Scalar(255));
-    cv::Mat unaligned(16, 16, CV_8UC1, cv::Scalar(240));
+TEST(CpuBlockAligner, WithStartingDisp) {
+    cv::Mat_<float> reference(2, 4, 0.0f);
+    reference(1, 1) = 1.0f;
+    cv::Mat_<float> alternate(2, 4, 0.0f);
+    alternate(1, 3) = 1.0f;
 
-    auto test_align = [](const cv::Mat &ref, const cv::Mat &n, int, int) -> Disp {
-        EXPECT_EQ(8, ref.rows);
-        EXPECT_EQ(8, ref.cols);
-        EXPECT_EQ(10, n.rows);
-        EXPECT_EQ(10, n.cols);
-        return Disp(4, 4);
-    };
+    CpuBlockAligner aligner(2, 1 /* tile_size */, 1 /* search_radius */, reference, alternate);
 
-    cv::Mat out;
-    block_align_images(8, 2, reference, unaligned, &out, test_align);
-    EXPECT_EQ(2, out.cols);
-    EXPECT_EQ(2, out.rows);
+    cv::Mat_<cv::Vec2f> in_disp(2, 4, cv::Vec2f());
+    cv::Mat_<cv::Vec2f> out_disp(2, 4);
+    aligner.align(in_disp, &out_disp);
 
-    EXPECT_EQ(cv::Vec2f(4, 4), out.at<cv::Vec2f>(0, 0));
-    EXPECT_EQ(cv::Vec2f(4, 4), out.at<cv::Vec2f>(0, 1));
-    EXPECT_EQ(cv::Vec2f(4, 4), out.at<cv::Vec2f>(1, 0));
-    EXPECT_EQ(cv::Vec2f(4, 4), out.at<cv::Vec2f>(1, 1));
+    // The true displacement is (2.0f, 0.0f), but with a search_radius of 1, we won't be able to find it
+    cv::Vec2f result = out_disp(1, 1);
+    EXPECT_FLOAT_EQ(0.0f, result[0]);
+    EXPECT_FLOAT_EQ(0.0f, result[1]);
+
+    // Setting the starting displacement to (1.0f, 0.0f) makes it possible to find
+    in_disp(1, 1) = cv::Vec2f(1.0f, 0.0f);
+    aligner.align(in_disp, &out_disp);
+    result = out_disp(1, 1);
+    EXPECT_FLOAT_EQ(2.0f, result[0]);
+    EXPECT_FLOAT_EQ(0.0f, result[1]);
 }
 
-/*TEST(BlockAlignNaive, WithStartingDisp) {
-    cv::Mat reference(2, 8, CV_8UC1, cv::Scalar(128));
-    cv::rectangle(reference, cv::Rect(0, 0, 2, 2), 255, cv::FILLED);
-    cv::Mat unaligned(2, 8, CV_8UC1, cv::Scalar(0));
-    cv::rectangle(unaligned, cv::Rect(4, 0, 2, 2), 255, cv::FILLED);
+TEST(CpuBlockAligner, LargeStartingDisp) {
+    cv::Mat_<float> reference(2, 2, 0.0f);
+    reference(0, 0) = 1.0f;
+    cv::Mat_<float> alternate(2, 2, 0.0f);
+    alternate(1, 1) = 1.0f;
 
-    NaiveBlockAligner aligner(2, 1, reference, unaligned);
+    CpuBlockAligner aligner(2, 1 /* tile_size */, 1 /* search_radius */, reference, alternate);
 
-    // With empty starting displacement, aligner cannot find the optimal alignment (4, 0)
-    cv::Mat disp;
-    aligner.align_L2(&disp);
-    EXPECT_EQ(cv::Vec2f(0, 0), disp.at<cv::Vec2f>(0, 0));
+    // Aligner should clamp out-of-bounds displacements to the image edge
+    cv::Mat_<cv::Vec2f> in_disp(2, 2, cv::Vec2f());
+    in_disp(0, 0) = cv::Vec2f(-100.0f, -100.0f);
 
-    // With starting displacement of 3, aligner should be able to find optimal alignment
-    disp.at<cv::Vec2f>(0, 0) = cv::Vec2f(3, 0);
-    aligner.align_L2(&disp);
-    EXPECT_EQ(cv::Vec2f(4, 0), disp.at<cv::Vec2f>(0, 0));
+    cv::Mat_<cv::Vec2f> out_disp(2, 2);
+    aligner.align(in_disp, &out_disp);
+
+    cv::Vec2f result = out_disp(0, 0);
+    EXPECT_FLOAT_EQ(1.0f, result[0]);
+    EXPECT_FLOAT_EQ(1.0f, result[1]);
 }
-
-TEST(BlockAlignNaive, StartingDispDoesntExceedBounds) {
-    cv::Mat reference(4, 4, CV_8UC1, cv::Scalar(0));
-    cv::Mat alternate(4, 4, CV_8UC1, cv::Scalar(0));
-    alternate.at<uint8_t>(1, 1) = 128;
-    alternate.at<uint8_t>(3, 3) = 64;
-
-    auto test_align = [](const cv::Mat &ref, const cv::Mat &n, int, int) -> Disp {
-        EXPECT_EQ(2, ref.rows);
-        EXPECT_EQ(2, ref.cols);
-        EXPECT_EQ(3, n.rows);
-        EXPECT_EQ(3, n.cols);
-
-        if (n.at<uint8_t>(1, 1) == 128) {
-            // Top left
-            SUCCEED();
-        }
-        else if (n.at<uint8_t>(2, 2) == 64) {
-            // Bottom right
-            SUCCEED();
-        }
-        else if (n.at<uint8_t>(0, 1) == 128) {
-            // Bottom left
-            SUCCEED();
-        }
-        else if (n.at<uint8_t>(1, 0) == 128) {
-            // Top right
-            SUCCEED();
-        }
-        else {
-            std::cout << n << std::endl;
-            ADD_FAILURE();
-        }
-
-        return Disp(0, 0);
-    };
-
-    // Even if the starting displacement is out of bounds, the aligner should clamp it
-    // to the edges of the alternate image.
-    cv::Mat disp(2, 2, CV_32FC2, cv::Scalar(0.f));
-    disp.at<cv::Vec2f>(0, 0) = cv::Vec2f(-100, 0);
-    disp.at<cv::Vec2f>(1, 1) = cv::Vec2f(2, 87);
-    block_align_naive(2, 1, reference, alternate, &disp, test_align);
-}*/

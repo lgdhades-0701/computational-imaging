@@ -7,16 +7,6 @@
 
 namespace imaging_cpu {
 
-// Pick the 3 input coords to check for a given expanded coord
-template <int ExpansionFactor>
-void get_coords_to_check(
-    int input_width,
-    int input_height,
-    int expanded_x,
-    int expanded_y,
-    cv::Vec2i out_coords[3]
-);
-
 template <int TileExpansionFactor, int PixelExpansionFactor>
 void transfer_displacements(
     const cv::Mat &input,
@@ -34,5 +24,58 @@ int hierarchical_align(
 );
 
 AlignedImage compute_alignment(const Inputs &inputs);
+
+namespace detail {
+
+// For displacement upscaling, pick the 3 input coords to check for a given expanded coord
+void get_coords_to_check(
+    cv::Size source_size,
+    int expansion_factor,
+    cv::Vec2i dest_coord,
+    cv::Vec2i out_coords[3]
+);
+
+struct AlignLevel {
+    int downscale;
+    int tile_size;
+    int search_radius;
+
+    cv::Mat_<float> ref, alt;
+    cv::Mat_<cv::Vec2f> initial_disp;
+    cv::Mat_<cv::Vec2f> ending_disp;
+
+    AlignLevel(const cv::Mat_<float> &input_ref,
+        const cv::Mat_<float> &input_alt,
+        int downscale,
+        int tile_size,
+        int search_radius,
+        bool search_subpixel)
+        : downscale(downscale),
+        tile_size(tile_size),
+        search_radius(search_radius)
+    {
+        // TODO(fyhuang): support unpadded images
+        assert(input_ref.rows % downscale == 0);
+        assert(input_ref.cols % downscale == 0);
+
+        cv::Size size_after_scale(input_ref.rows / downscale, input_ref.cols / downscale);
+        cv::resize(input_ref, ref, size_after_scale);
+        cv::resize(input_alt, alt, size_after_scale);
+
+        // TODO(fyhuang): support "jagged" border
+        assert(size_after_scale.width % tile_size == 0);
+        assert(size_after_scale.height % tile_size == 0);
+        cv::Size disp_size(size_after_scale.width / tile_size, size_after_scale.height / tile_size);
+        initial_disp.create(disp_size);
+        initial_disp = cv::Vec2f(0.0f);
+
+        ending_disp.create(disp_size);
+        ending_disp = cv::Vec2f(0.0f);
+    }
+
+    void seed_initial_displacements(const AlignLevel &prev_level);
+};
+
+}
 
 }

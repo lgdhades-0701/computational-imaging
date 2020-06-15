@@ -14,6 +14,7 @@
 // reference additional headers your program requires here
 #include <stdio.h>
 
+#include <cassert>
 #include <cmath>
 #include <memory>
 #include <vector>

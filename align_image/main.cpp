@@ -2,9 +2,10 @@
 
 #include "imaging/stdafx.h"
 #include "imaging/SuperResPipeline.h"
-#include "imaging/HierarchicalAlignment.h"
-#include "imaging/RobustnessMask.h"
-#include "imaging/KernelReconstruction.h"
+
+#include "imaging/alignment/hier_align.h"
+//#include "imaging/alignment/robustness_mask.h"
+//#include "imaging/rendering/kernel_reconstruction.h"
 
 DEFINE_string(ref, "", "Filename of reference image");
 DEFINE_string(alt, "", "Filename of alternate image");
@@ -48,11 +49,11 @@ int main(int argc, char *argv[]) {
     auto inputs = imaging_cpu::Inputs(&reference, &alternate);
 
     auto aligned_image = imaging_cpu::compute_alignment(inputs);
-    cv::Mat robustness;
-    imaging_cpu::calculate_robustness_mask(reference, *aligned_image.aligned, &robustness);
+    //cv::Mat robustness;
+    //imaging_cpu::calculate_robustness_mask(reference, *aligned_image.aligned, &robustness);
 
     // TODO: replace with more accurate kernel reconstruction
-    cv::Mat merged(reference.rows, reference.cols, CV_8UC1, cv::Scalar(0));
+    /*cv::Mat merged(reference.rows, reference.cols, CV_8UC1, cv::Scalar(0));
     for (int y = 0; y < merged.rows; y++) {
         for (int x = 0; x < merged.cols; x++) {
             float weight = 1.0f;
@@ -64,10 +65,10 @@ int main(int argc, char *argv[]) {
 
             merged.at<uint8_t>(y, x) = (uint8_t)(color_sum / weight);
         }
-    }
+    }*/
 
     cv::imshow("Aligned", *aligned_image.aligned);
-    cv::imshow("Robustness", robustness);
+    //cv::imshow("Robustness", robustness);
     cv::waitKey(0);
     
     return 0;

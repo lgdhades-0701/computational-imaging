@@ -66,7 +66,6 @@ set_target_properties(gentestimg_cmd PROPERTIES OUTPUT_NAME gentestimg)
 #    align_image/main.cpp
 #)
 #target_link_libraries(align_image PRIVATE gflags::gflags imaging)
-#target_include_directories(align_image PRIVATE "${PROJECT_SOURCE_DIR}")
 
 # Super resolution app
 #add_executable(super_res
